@@ -843,6 +843,7 @@ class ZoneRoomAssistStateSensor(_ZoneSensor):
                 "applied_offset",
                 "calculated_temperature",
                 "scheduled_target_guard",
+                "directional_limit",
                 "hysteresis_phase",
                 "hysteresis_target",
                 "deadband_low",

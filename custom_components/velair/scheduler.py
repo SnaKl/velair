@@ -167,6 +167,13 @@ from .room_sensor_schedule import (
     RoomSensorScheduleRuntime, copy_room_sensor_schedule, normalize_room_sensor_schedule,
 )
 
+from .room_assist_fork import (
+    FORK_OPTION_DEFAULTS,
+    apply_directional_limit,
+    demand_gain_error,
+    without_fork_options,
+)
+
 _LOGGER = logging.getLogger(__name__)
 _MISSING = object()
 _RoomSensorAssistRefreshResult = Literal["handled", "not_applicable", "superseded"]
@@ -322,6 +329,7 @@ class _RoomSensorAssistState:
     target_temp_step: float | None = None
     range_reference_temperature: float | None = None
     effective_hvac_mode: str | None = None
+    directional_limit: Literal["heating_floor", "cooling_ceiling"] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -342,6 +350,7 @@ class _RoomSensorAssistTargetResult:
     deadband_high: float | None = None
     pre_step_temperature: float | None = None
     target_temp_step: float | None = None
+    directional_limit: Literal["heating_floor", "cooling_ceiling"] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -5224,6 +5233,9 @@ class VelairScheduler:
         defaults["room_sensor_assist_debounce_seconds"] = current[
             "room_sensor_assist_debounce_seconds"
         ]
+        for key in FORK_OPTION_DEFAULTS:
+            if key in current:
+                defaults[key] = current[key]
         previous_session = self._preconditioning_sessions.get(entity_id)
         previous_applied_targets = deepcopy(self._applied_preconditioning_targets)
         self._invalidate_climate_delivery(entity_id)
@@ -9954,6 +9966,9 @@ class VelairScheduler:
             "scheduled_target_guard": (
                 runtime_state.scheduled_target_guard if runtime_state is not None else None
             ),
+            "directional_limit": (
+                runtime_state.directional_limit if runtime_state is not None else None
+            ),
             "hysteresis_phase": hysteresis_phase,
             "hysteresis_target": hysteresis_target,
             "deadband_low": deadband_low,
@@ -10588,6 +10603,7 @@ class VelairScheduler:
             room_temperature_entity_id=room_entity_id,
             weekday=weekday,
             start=start,
+            directional_limit=target_result.directional_limit,
             limited_by=target_result.limited_by,
             limit_temperature=target_result.limit_temperature,
             requested_temperature=target_result.requested_temperature,
@@ -10628,6 +10644,7 @@ class VelairScheduler:
                 room_temperature_entity_id=room_entity_id,
                 weekday=weekday,
                 start=start,
+                directional_limit=target_result.directional_limit,
                 limited_by=target_result.limited_by,
                 limit_temperature=target_result.limit_temperature,
                 requested_temperature=target_result.requested_temperature,
@@ -11103,7 +11120,10 @@ class VelairScheduler:
         correction = 0.0
         if hysteresis_phase is not None or abs(error) > minimum_delta:
             max_delta = config["room_sensor_assist_max_delta"]
-            correction = max(-max_delta, min(max_delta, error))
+            correction = max(
+                -max_delta,
+                min(max_delta, demand_gain_error(config, direction, fixed_direction, error)),
+            )
         desired_temperature = climate_temperature + correction
         temperature_step = self.get_temperature_step(entity_id)
         min_temperature, max_temperature = self.get_temperature_limits(entity_id)
@@ -11156,6 +11176,11 @@ class VelairScheduler:
         ):
             scheduled_target_guard = "heating_ceiling"
             desired_temperature = min(desired_temperature, target_temperature)
+
+        desired_temperature, directional_limit = apply_directional_limit(
+            config, direction, fixed_direction, desired_temperature,
+            target_temperature, temperature_step, min_temperature,
+        )
 
         requested = (
             _room_sensor_assist_nearest_step_temperature(
@@ -11223,6 +11248,7 @@ class VelairScheduler:
             deadband_high=deadband_high,
             pre_step_temperature=pre_step_temperature,
             target_temp_step=applied_target_step,
+            directional_limit=directional_limit,
         )
 
     def _room_sensor_assist_range_direction(
@@ -11338,7 +11364,7 @@ class VelairScheduler:
                 weekday, start, holding_state, temperature_only=temperature_only,
             )
             scalar_result = self._room_sensor_assist_target(
-                entity_id, config, mode, target, room_temperature, climate_temperature,
+                entity_id, without_fork_options(config), mode, target, room_temperature, climate_temperature,
                 fixed_direction=True, hysteresis_phase=phase, hysteresis_target=phase_target,
                 deadband_low=deadband_low, deadband_high=deadband_high,
             )

@@ -204,6 +204,8 @@ class PreconditioningData(TypedDict):
     room_sensor_assist_deadband: float
     room_sensor_assist_max_delta: float
     room_sensor_assist_debounce_seconds: int
+    room_sensor_assist_demand_gain: NotRequired[float]
+    room_sensor_assist_directional_limit: NotRequired[bool]
 
 
 class DerivedMetricData(TypedDict):
@@ -1958,6 +1960,16 @@ def normalize_preconditioning_data(raw_data: Any) -> PreconditioningData:
             maximum=300,
         ),
     }
+
+    # Fork options (room_assist_fork.py). Stored only when non-default so data
+    # stays identical to upstream, and readable by it, until they are enabled.
+    demand_gain = _normalize_float(
+        data.get("room_sensor_assist_demand_gain"), 1.0, minimum=1.0, maximum=3.0
+    )
+    if demand_gain != 1.0:
+        normalized["room_sensor_assist_demand_gain"] = demand_gain
+    if data.get("room_sensor_assist_directional_limit") is True:
+        normalized["room_sensor_assist_directional_limit"] = True
 
     if "room_sensor_schedule" in data:
         from .room_sensor_schedule import normalize_room_sensor_schedule
