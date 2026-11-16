@@ -366,6 +366,11 @@ export type PreconditioningSettings = {
   room_sensor_assist_deadband: number;
   room_sensor_assist_max_delta: number;
   room_sensor_assist_debounce_seconds: number;
+  // Fork options, present only when enabled (see room-assist-fork-view.ts).
+  room_sensor_assist_demand_gain?: number;
+  room_sensor_assist_directional_limit?: boolean;
+  room_sensor_assist_demand_fan_mode?: string | null;
+  room_sensor_assist_demand_fan_delta?: number;
 };
 
 export type PreconditioningSettingsUpdate = Omit<Partial<PreconditioningSettings>, "room_sensor_schedule"> & {

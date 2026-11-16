@@ -16,6 +16,7 @@ import type { TranslationKey } from "../translations";
 import type { PreconditioningSettings, RoomSensorAssistStatus } from "../types";
 import { renderInlineHelp } from "./inline-help";
 import { renderDocumentationHelp } from "./documentation-links";
+import { renderRoomAssistForkSettings } from "./room-assist-fork-view";
 
 type SensorsViewHost = VelairViewHost;
 
@@ -331,7 +332,8 @@ function renderSensorConfiguration(
             )
           : nothing}
           </div>
-        </section>` : nothing}
+        </section>
+        ${renderRoomAssistForkSettings(host, entityId, settings, host._temperatureUnit(entityId))}` : nothing}
       </div>
     </section>
   `;

@@ -87,6 +87,12 @@ export function preconditioningSettings(
     ),
   };
   if (value?.room_sensor_schedule) settings.room_sensor_schedule = value.room_sensor_schedule;
+  for (const key of [
+    "room_sensor_assist_demand_gain", "room_sensor_assist_directional_limit",
+    "room_sensor_assist_demand_fan_mode", "room_sensor_assist_demand_fan_delta",
+  ] as const) {
+    if (value?.[key] != null) (settings as Record<string, unknown>)[key] = value[key];
+  }
   return settings;
 }
 
