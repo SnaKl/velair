@@ -208,6 +208,9 @@ class PreconditioningData(TypedDict):
     room_sensor_assist_directional_limit: NotRequired[bool]
     room_sensor_assist_demand_fan_mode: NotRequired[str]
     room_sensor_assist_demand_fan_delta: NotRequired[float]
+    room_sensor_assist_quiet_start: NotRequired[str]
+    room_sensor_assist_quiet_end: NotRequired[str]
+    single_command_delivery: NotRequired[bool]
 
 
 class DerivedMetricData(TypedDict):
@@ -1980,6 +1983,11 @@ def normalize_preconditioning_data(raw_data: Any) -> PreconditioningData:
     )
     if demand_fan_delta != 1.5:
         normalized["room_sensor_assist_demand_fan_delta"] = demand_fan_delta
+    quiet = [data.get("room_sensor_assist_quiet_start"), data.get("room_sensor_assist_quiet_end")]
+    if all(isinstance(v, str) and re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", v) for v in quiet):
+        normalized["room_sensor_assist_quiet_start"], normalized["room_sensor_assist_quiet_end"] = quiet
+    if data.get("single_command_delivery") is True:
+        normalized["single_command_delivery"] = True
 
     if "room_sensor_schedule" in data:
         from .room_sensor_schedule import normalize_room_sensor_schedule

@@ -220,11 +220,54 @@ class RoomAssistDemandFanTest(upstream.VelairSchedulerPreconditioningTest):
         self.assertEqual(await self._refresh(17.0), "auto")
 
 
+class RoomAssistQuietPeriodTest(unittest.TestCase):
+    def test_window_within_a_day_and_across_midnight(self) -> None:
+        from datetime import datetime
+
+        from custom_components.velair.room_assist_fork import in_quiet_period
+
+        at = lambda hour, minute=0: datetime(2026, 11, 16, hour, minute)  # noqa: E731
+        night = normalize_preconditioning_data(
+            {"room_sensor_assist_quiet_start": "23:00", "room_sensor_assist_quiet_end": "07:00"}
+        )
+        self.assertTrue(in_quiet_period(night, at(23)))
+        self.assertTrue(in_quiet_period(night, at(3, 30)))
+        self.assertFalse(in_quiet_period(night, at(7)))
+        self.assertFalse(in_quiet_period(night, at(22, 59)))
+        nap = normalize_preconditioning_data(
+            {"room_sensor_assist_quiet_start": "13:00", "room_sensor_assist_quiet_end": "15:00"}
+        )
+        self.assertTrue(in_quiet_period(nap, at(14)))
+        self.assertFalse(in_quiet_period(nap, at(15)))
+        self.assertFalse(in_quiet_period(normalize_preconditioning_data({}), at(3)))
+        half = normalize_preconditioning_data({"room_sensor_assist_quiet_start": "23:00"})
+        self.assertNotIn("room_sensor_assist_quiet_start", half)
+        bad = normalize_preconditioning_data(
+            {"room_sensor_assist_quiet_start": "25:00", "room_sensor_assist_quiet_end": "07:00"}
+        )
+        self.assertNotIn("room_sensor_assist_quiet_start", bad)
+
+
+class RoomAssistQuietDeliveryTest(RoomAssistDemandFanTest):
+    """Room Assist sends nothing while its quiet period is active."""
+
+    async def test_no_command_during_the_quiet_period(self) -> None:
+        zone = self.data["zones"][self.entity_id]["preconditioning"]
+        zone.update(room_sensor_assist_quiet_start="00:00", room_sensor_assist_quiet_end="23:59")
+        self.assertIsNone(await self._refresh(17.0))
+        self.assertNotIn(self.entity_id, self.scheduler._room_sensor_assist_states)
+        zone.update(room_sensor_assist_quiet_start=None, room_sensor_assist_quiet_end=None)
+        self.assertEqual(await self._refresh(17.0), "auto")
+
+
 def load_tests(loader, tests, pattern):
     """Run only the tests defined here, not the inherited upstream suite."""
     return unittest.TestSuite(
         case(name)
-        for case in (RoomAssistForkTest, RoomAssistDemandFanTest)
+        for case in (
+            RoomAssistForkTest, RoomAssistDemandFanTest,
+            RoomAssistQuietPeriodTest, RoomAssistQuietDeliveryTest,
+        )
         for name in vars(case)
         if name.startswith("test_")
     )

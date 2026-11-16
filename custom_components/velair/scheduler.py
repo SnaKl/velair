@@ -172,6 +172,7 @@ from .room_assist_fork import (
     apply_directional_limit,
     demand_fan_mode,
     demand_gain_error,
+    in_quiet_period,
     without_fork_options,
 )
 
@@ -396,6 +397,11 @@ class VelairScheduler:
         self._hass = hass
         self._data = data
         self._physical_climate_manager = climate_manager
+        if isinstance(climate_manager, ClimateManager):  # fork: delivery_fork.py
+            climate_manager.single_command_delivery = lambda entity: bool(
+                (self._data["zones"].get(self.owner_for_entity(entity), {}).get("preconditioning") or {})
+                .get("single_command_delivery")
+            )
         self._climate_manager = (GroupClimateManager(hass, data, climate_manager)
                                  if isinstance(climate_manager, ClimateManager) else climate_manager)
         if hasattr(climate_manager, "target_format_policy"):
@@ -10452,6 +10458,7 @@ class VelairScheduler:
         if (
             not config["room_sensor_assist_enabled"]
             or not room_entity_id
+            or in_quiet_period(config, dt_util.now())
         ):
             _LOGGER.debug("Room Sensor Assist skipped for %s: assist disabled", entity_id)
             await self._async_clear_room_sensor_assist_locked(

@@ -14,7 +14,25 @@ FORK_OPTION_DEFAULTS: dict[str, Any] = {
     "room_sensor_assist_directional_limit": False,
     "room_sensor_assist_demand_fan_mode": None,
     "room_sensor_assist_demand_fan_delta": 1.5,
+    "room_sensor_assist_quiet_start": None,
+    "room_sensor_assist_quiet_end": None,
+    "single_command_delivery": False,
 }
+
+
+def in_quiet_period(config: Any, now: Any) -> bool:
+    """Return whether Room Assist is silenced at this local time.
+
+    Between `quiet_start` and `quiet_end` ("HH:MM", may span midnight) Room
+    Assist is treated as disabled: the scheduled target is restored once and
+    then left alone, so the device receives no further commands.
+    """
+    start = config.get("room_sensor_assist_quiet_start")
+    end = config.get("room_sensor_assist_quiet_end")
+    if not start or not end or start == end:
+        return False
+    current = now.strftime("%H:%M")
+    return start <= current < end if start < end else current >= start or current < end
 
 
 def without_fork_options(config: Any) -> Any:

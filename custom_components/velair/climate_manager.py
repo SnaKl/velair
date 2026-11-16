@@ -61,6 +61,7 @@ CLIMATE_OPTION_SERVICES = {
     ATTR_HUMIDITY: CLIMATE_SERVICE_SET_HUMIDITY,
 }
 
+from .delivery_fork import plan_single_delivery
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_MIN_TEMPERATURE = 5.0
@@ -92,6 +93,8 @@ class ClimateManager:
         self._settling: dict[str, dict[str, dict[str, Any]]] = {}
         self._settling_mismatches: dict[str, dict[str, dict[str, Any]]] = {}
         self._field_generations: dict[str, dict[str, int]] = {}
+        # Fork: per-entity switch for delivery_fork.plan_single_delivery.
+        self.single_command_delivery: Any = None
 
     def _check_current_delivery(self, entity_id: Any) -> None:
         """Validate task authority and the physical entity before each call."""
@@ -1454,6 +1457,12 @@ class ClimateManager:
                 mode_data[ATTR_HVAC_MODE] = target_mode
                 expected[ATTR_HVAC_MODE] = target_mode
 
+        full_state: dict[str, Any] | None = None
+        if self.single_command_delivery is not None and self.single_command_delivery(entity_id):
+            mode_service, climate_options, full_state = plan_single_delivery(
+                self._hass, entity_id, mode_service, mode_data, expected, target, climate_options
+            )
+
         context = self._new_owned_context()
         self._prune_owned_actions()
         state = self._hass.states.get(entity_id)
@@ -1479,6 +1488,21 @@ class ClimateManager:
             expected,
             structural_transition_fields=structural_transition_fields,
         )
+        if full_state is not None:
+            # Fork: mode, fan and temperature as one Sensibo command.
+            try:
+                self._check_current_delivery(entity_id)
+                if self._execution_authority is not None:
+                    self._execution_authority.ensure_local(entity_id)
+                await self._hass.services.async_call(
+                    "sensibo", "full_state", full_state, blocking=True, context=context
+                )
+            except (asyncio.CancelledError, Exception):
+                self._discard_expected_action(entity_id, context.id)
+                raise
+            self._mark_expected_action_delivered(entity_id, context.id)
+            record_delivery_receipt(entity_id, dict(expected))
+            return
         if mode_service is not None:
             try:
                 await self._async_call(

@@ -371,6 +371,9 @@ export type PreconditioningSettings = {
   room_sensor_assist_directional_limit?: boolean;
   room_sensor_assist_demand_fan_mode?: string | null;
   room_sensor_assist_demand_fan_delta?: number;
+  room_sensor_assist_quiet_start?: string | null;
+  room_sensor_assist_quiet_end?: string | null;
+  single_command_delivery?: boolean;
 };
 
 export type PreconditioningSettingsUpdate = Omit<Partial<PreconditioningSettings>, "room_sensor_schedule"> & {

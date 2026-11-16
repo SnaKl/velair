@@ -16,6 +16,11 @@ const LABELS = {
     fanNone: "Off (scheduled fan mode)",
     delta: "Catch-up gap",
     deltaHelp: "Room-to-target gap that starts the catch-up fan mode. It stops at half this gap.",
+    quietStart: "Quiet period start",
+    quietEnd: "Quiet period end",
+    quietHelp: "Between these times Room Assist leaves the scheduled setpoint alone, so the device gets no command. Clear either time to turn it off.",
+    single: "Fewer commands per change",
+    singleHelp: "Skips the mode and fan commands the device already has. A Sensibo device gets mode, fan and temperature as one command.",
   },
   fr: {
     title: "Options du fork",
@@ -28,6 +33,11 @@ const LABELS = {
     fanNone: "Désactivée (mode programmé)",
     delta: "Écart de rattrapage",
     deltaHelp: "Écart pièce/cible qui déclenche la ventilation de rattrapage. Elle s'arrête à la moitié de cet écart.",
+    quietStart: "Début de la plage de silence",
+    quietEnd: "Fin de la plage de silence",
+    quietHelp: "Entre ces heures, Room Assist laisse la consigne programmée telle quelle : l'appareil ne reçoit aucune commande. Videz une des deux heures pour désactiver.",
+    single: "Moins de commandes par changement",
+    singleHelp: "N'envoie plus le mode et la ventilation que l'appareil a déjà. Un appareil Sensibo reçoit mode, ventilation et température en une seule commande.",
   },
 };
 
@@ -75,6 +85,29 @@ export function renderRoomAssistForkSettings(
       }}
     />
   `;
+  const quiet = {
+    room_sensor_assist_quiet_start: settings.room_sensor_assist_quiet_start ?? "",
+    room_sensor_assist_quiet_end: settings.room_sensor_assist_quiet_end ?? "",
+  };
+  // Both times are saved together: the backend only keeps a complete period.
+  const time = (field: keyof typeof quiet) => html`
+    <input
+      id=${id(field)}
+      aria-describedby=${`${id(field)}-description`}
+      type="time"
+      .value=${quiet[field]}
+      ?disabled=${disabled}
+      @change=${(event: Event) => {
+        const next = { ...quiet, [field]: (event.currentTarget as HTMLInputElement).value };
+        const complete = next.room_sensor_assist_quiet_start && next.room_sensor_assist_quiet_end;
+        if (complete || !next[field]) {
+          save(complete ? next : { room_sensor_assist_quiet_start: null, room_sensor_assist_quiet_end: null });
+        } else {
+          quiet[field] = next[field];
+        }
+      }}
+    />
+  `;
   const fanMode = settings.room_sensor_assist_demand_fan_mode ?? "";
   const fanModes: string[] = host.hass?.states?.[entityId]?.attributes?.fan_modes ?? [];
   const fanOptions = fanMode && !fanModes.includes(fanMode) ? [...fanModes, fanMode] : fanModes;
@@ -117,6 +150,18 @@ export function renderRoomAssistForkSettings(
           </select>`)}
         ${row(id("room_sensor_assist_demand_fan_delta"), t.delta, t.deltaHelp, inactive || !fanMode,
           number("room_sensor_assist_demand_fan_delta", settings.room_sensor_assist_demand_fan_delta ?? 1.5, 0.5, 5, 0.1), unit)}
+        ${row(id("room_sensor_assist_quiet_start"), t.quietStart, t.quietHelp, inactive, time("room_sensor_assist_quiet_start"))}
+        ${row(id("room_sensor_assist_quiet_end"), t.quietEnd, "", inactive, time("room_sensor_assist_quiet_end"))}
+        ${row(id("single_command_delivery"), t.single, t.singleHelp, false, html`
+          <input
+            id=${id("single_command_delivery")}
+            aria-describedby=${`${id("single_command_delivery")}-description`}
+            type="checkbox"
+            .checked=${Boolean(settings.single_command_delivery)}
+            ?disabled=${host._settingsSaving}
+            @change=${(event: Event) =>
+              save({ single_command_delivery: (event.currentTarget as HTMLInputElement).checked })}
+          />`)}
       </div>
     </section>
   `;

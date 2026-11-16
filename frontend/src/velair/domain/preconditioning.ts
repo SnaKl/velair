@@ -90,6 +90,7 @@ export function preconditioningSettings(
   for (const key of [
     "room_sensor_assist_demand_gain", "room_sensor_assist_directional_limit",
     "room_sensor_assist_demand_fan_mode", "room_sensor_assist_demand_fan_delta",
+    "room_sensor_assist_quiet_start", "room_sensor_assist_quiet_end", "single_command_delivery",
   ] as const) {
     if (value?.[key] != null) (settings as Record<string, unknown>)[key] = value[key];
   }

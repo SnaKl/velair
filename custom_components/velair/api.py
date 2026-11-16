@@ -265,6 +265,10 @@ PRECONDITIONING_SCHEMA = vol.Schema(
         ),
         vol.Optional("room_sensor_assist_directional_limit"): bool,
         vol.Optional("room_sensor_assist_demand_fan_mode"): vol.Any(None, cv.string),
+        # Format is checked by normalize_preconditioning_data; an invalid period is dropped.
+        vol.Optional("room_sensor_assist_quiet_start"): vol.Any(None, cv.string),
+        vol.Optional("room_sensor_assist_quiet_end"): vol.Any(None, cv.string),
+        vol.Optional("single_command_delivery"): bool,
         vol.Optional("room_sensor_assist_demand_fan_delta"): vol.All(
             vol.Coerce(float),
             vol.Range(min=0.5, max=5.0),

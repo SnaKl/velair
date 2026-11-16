@@ -60,6 +60,28 @@ describe("room assist fork settings", () => {
     expect(save).toHaveBeenLastCalledWith("climate.salon", { room_sensor_assist_demand_fan_mode: null });
   });
 
+  it("saves a quiet period only once both times are set, and clears it as a pair", () => {
+    const { field, save, container } = mount({});
+    const pick = (name: string, value: string) => {
+      const input = container.querySelector<HTMLInputElement>(`#room-assist-fork-climate-salon-${name}`)!;
+      input.value = value;
+      input.dispatchEvent(new Event("change"));
+    };
+    pick("room_sensor_assist_quiet_start", "23:00");
+    expect(save).not.toHaveBeenCalled();
+    pick("room_sensor_assist_quiet_end", "07:00");
+    expect(save).toHaveBeenLastCalledWith("climate.salon", {
+      room_sensor_assist_quiet_start: "23:00", room_sensor_assist_quiet_end: "07:00",
+    });
+    pick("room_sensor_assist_quiet_end", "");
+    expect(save).toHaveBeenLastCalledWith("climate.salon", {
+      room_sensor_assist_quiet_start: null, room_sensor_assist_quiet_end: null,
+    });
+    pick("single_command_delivery", "on");
+    expect(save).toHaveBeenLastCalledWith("climate.salon", { single_command_delivery: false });
+    expect(field<HTMLInputElement>("demand_gain").value).toBe("1");
+  });
+
   it("is disabled while Room Assist is off", () => {
     const { field } = mount({ room_sensor_assist_enabled: false });
     expect(field<HTMLInputElement>("demand_gain").disabled).toBe(true);
