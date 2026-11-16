@@ -170,6 +170,7 @@ from .room_sensor_schedule import (
 from .room_assist_fork import (
     FORK_OPTION_DEFAULTS,
     apply_directional_limit,
+    demand_fan_mode,
     demand_gain_error,
     without_fork_options,
 )
@@ -330,6 +331,7 @@ class _RoomSensorAssistState:
     range_reference_temperature: float | None = None
     effective_hvac_mode: str | None = None
     directional_limit: Literal["heating_floor", "cooling_ceiling"] | None = None
+    demand_fan_mode: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -9969,6 +9971,9 @@ class VelairScheduler:
             "directional_limit": (
                 runtime_state.directional_limit if runtime_state is not None else None
             ),
+            "demand_fan_mode": (
+                runtime_state.demand_fan_mode if runtime_state is not None else None
+            ),
             "hysteresis_phase": hysteresis_phase,
             "hysteresis_target": hysteresis_target,
             "deadband_low": deadband_low,
@@ -10591,6 +10596,19 @@ class VelairScheduler:
         desired_temperature = target_result.applied_temperature
         assist_delta = target_result.assist_delta
         applied_offset = target_result.applied_offset
+        demand_fan = demand_fan_mode(
+            config,
+            direction,
+            self._room_sensor_assist_uses_fixed_direction(
+                entity_id, hvac_mode, temperature_only=temperature_only
+            ),
+            target_temperature - room_temperature,
+            current_state.demand_fan_mode if current_state is not None else None,
+        )
+        if demand_fan and not self._climate_options_for_entity(
+            entity_id, {ATTR_FAN_MODE: demand_fan}
+        ):
+            demand_fan = None
 
         refreshed_state = _RoomSensorAssistState(
             entity_id=entity_id,
@@ -10603,6 +10621,7 @@ class VelairScheduler:
             room_temperature_entity_id=room_entity_id,
             weekday=weekday,
             start=start,
+            demand_fan_mode=demand_fan,
             directional_limit=target_result.directional_limit,
             limited_by=target_result.limited_by,
             limit_temperature=target_result.limit_temperature,
@@ -10623,6 +10642,7 @@ class VelairScheduler:
             not force_apply
             and current_state is not None
             and current_state.applied_temperature is not None
+            and demand_fan == current_state.demand_fan_mode
             and abs(desired_temperature - current_state.applied_temperature)
             < movement_threshold - 0.000001
         ):
@@ -10644,6 +10664,7 @@ class VelairScheduler:
                 room_temperature_entity_id=room_entity_id,
                 weekday=weekday,
                 start=start,
+                demand_fan_mode=demand_fan,
                 directional_limit=target_result.directional_limit,
                 limited_by=target_result.limited_by,
                 limit_temperature=target_result.limit_temperature,
@@ -10680,6 +10701,8 @@ class VelairScheduler:
                 self._room_sensor_assist_scheduled_target_options(entity_id, weekday, start)
                 if weekday is not None and start is not None else {}
             )
+        if demand_fan:
+            climate_options = {**climate_options, ATTR_FAN_MODE: demand_fan}
         generation = self._room_sensor_assist_generation(entity_id)
         check_delivery()
         self._room_sensor_assist_inflight[entity_id] = refreshed_state

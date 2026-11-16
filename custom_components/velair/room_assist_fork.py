@@ -1,6 +1,6 @@
 """Fork-only Room Assist options, kept out of scheduler.py to ease upstream rebases.
 
-Both options are off by default; defaults reproduce upstream behaviour exactly.
+All options are off by default; defaults reproduce upstream behaviour exactly.
 Only fixed heat/cool scalar targets are affected (not auto, not range targets).
 """
 
@@ -12,6 +12,8 @@ from typing import Any, Literal
 FORK_OPTION_DEFAULTS: dict[str, Any] = {
     "room_sensor_assist_demand_gain": 1.0,
     "room_sensor_assist_directional_limit": False,
+    "room_sensor_assist_demand_fan_mode": None,
+    "room_sensor_assist_demand_fan_delta": 1.5,
 }
 
 
@@ -32,6 +34,29 @@ def demand_gain_error(
     gain = config.get("room_sensor_assist_demand_gain", 1.0)
     demanding = (direction == "heat" and error > 0) or (direction == "cool" and error < 0)
     return error * gain if fixed_direction and demanding else error
+
+
+def demand_fan_mode(
+    config: Any,
+    direction: str,
+    fixed_direction: bool,
+    error: float,
+    previous: str | None,
+) -> str | None:
+    """Return the catch-up fan mode while the room is far from its target.
+
+    `error` is scheduled target minus room temperature. The fan mode engages at
+    `demand_fan_delta` and is released at half of it, so it does not flap; None
+    means the scheduled block's own fan mode applies.
+    """
+    fan_mode = config.get("room_sensor_assist_demand_fan_mode")
+    if not fan_mode or not fixed_direction:
+        return None
+    delta = config.get("room_sensor_assist_demand_fan_delta", 1.5)
+    demand = error if direction == "heat" else -error if direction == "cool" else 0.0
+    if demand >= delta or (previous == fan_mode and demand > delta / 2):
+        return fan_mode
+    return None
 
 
 def apply_directional_limit(

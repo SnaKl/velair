@@ -22,6 +22,8 @@ leur valeur par défaut, les données restent identiques à upstream.
 |---|---|---|
 | `room_sensor_assist_demand_gain` | `1.0` (1.0 à 3.0) | Multiplie l'écart pièce/cible tant que la pièce demande encore du chaud (ou du froid). La correction reste bornée par `room_sensor_assist_max_delta` et par les limites de l'appareil. |
 | `room_sensor_assist_directional_limit` | `false` | Chauffage : jamais de consigne sous la cible active. Froid : jamais au-dessus. Diagnostic `directional_limit` = `heating_floor` / `cooling_ceiling`. Demande upstream : cgonfer/velair#91. |
+| `room_sensor_assist_demand_fan_mode` | absent | Mode de ventilation de rattrapage (ex. `high`). Appliqué quand la pièce est à `room_sensor_assist_demand_fan_delta` ou plus de la cible, relâché à la moitié de cet écart ; le mode du bloc programmé reprend alors. Ignoré si l'appareil ne propose pas ce mode. Diagnostic `demand_fan_mode`. |
+| `room_sensor_assist_demand_fan_delta` | `1.5` (0.5 à 5) | Écart pièce/cible, en degrés, qui déclenche la ventilation de rattrapage. |
 
 Compromis de la limite directionnelle : Room Assist ne peut plus baisser la consigne pour
 freiner un dépassement.

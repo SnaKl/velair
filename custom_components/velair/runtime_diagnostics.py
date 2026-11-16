@@ -153,6 +153,7 @@ _FEATURE_EVENT_FIELDS: dict[str, tuple[str, ...]] = {
         "reason",
         "room_temperature",
         "room_temperature_entity_id",
+        "demand_fan_mode",
         "directional_limit",
         "scheduled_target_guard",
         "target_temp_high",

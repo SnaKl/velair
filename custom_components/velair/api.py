@@ -264,6 +264,11 @@ PRECONDITIONING_SCHEMA = vol.Schema(
             vol.Range(min=1.0, max=3.0),
         ),
         vol.Optional("room_sensor_assist_directional_limit"): bool,
+        vol.Optional("room_sensor_assist_demand_fan_mode"): vol.Any(None, cv.string),
+        vol.Optional("room_sensor_assist_demand_fan_delta"): vol.All(
+            vol.Coerce(float),
+            vol.Range(min=0.5, max=5.0),
+        ),
     }
 )
 
