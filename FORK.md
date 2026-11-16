@@ -14,7 +14,9 @@ que les rebases restent courts.
 
 ## Options ajoutées (par zone, inactives par défaut)
 
-Réglables par WebSocket `velair/update_zone_preconditioning`, pas d'interface graphique.
+Réglables dans le panneau Velair, écran Room Assist de chaque zone, bloc « Options du fork »
+(`frontend/src/velair/views/room-assist-fork-view.ts`), ou par WebSocket
+`velair/update_zone_preconditioning`.
 Elles ne sont écrites dans le stockage que si elles sont activées : tant qu'elles sont à
 leur valeur par défaut, les données restent identiques à upstream.
 
@@ -30,14 +32,23 @@ freiner un dépassement.
 
 ## Suivre upstream
 
+Le dernier commit de la branche (« Build frontend bundle ») ne contient que le bundle
+compilé. Il entre en conflit à chaque version upstream : on le retire avant le rebase et
+on le refait après.
+
 ```bash
 git fetch upstream --tags
 git push origin upstream/main:main
-git rebase vX.Y.Z snakl/room-assist
+git reset --hard HEAD~1
+git rebase vX.Y.Z
+(cd frontend && npm ci && npm run test && npm run build:release)
 python3 -m unittest discover -s tests
+git commit -am "Build frontend bundle"
 git push --force-with-lease origin snakl/room-assist
+git tag vX.Y.Z-snakl.1 && git push origin vX.Y.Z-snakl.1
 ```
 
-Si le rebase est en conflit, il ne peut l'être que dans les lignes d'appel de
-`scheduler.py`, `models.py` ou `api.py`. Quand upstream livre une de ces options, supprimer
-la nôtre plutôt que de garder les deux.
+La version du manifeste reste celle d'upstream ; c'est le tag `vX.Y.Z-snakl.N` qui identifie
+le fork dans HACS. Si le rebase est en conflit, il ne peut l'être que dans les lignes d'appel
+de `scheduler.py`, `models.py`, `api.py` ou `sensors-view.ts`. Quand upstream livre une de
+ces options, supprimer la nôtre plutôt que de garder les deux.
